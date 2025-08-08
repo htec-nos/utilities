@@ -187,8 +187,10 @@ function Remove-WSLDistro {
     }
 
     # Step 1: Unregister the WSL distro
-    Write-Host "`nUnregistering $DistroName from WSL..." -ForegroundColor Cyan
+    Write-Host "`nUnregistering $DistroName from WSL...`n" -ForegroundColor Cyan
     try {
+        $cmd = "wsl --shutdown"
+        Invoke-Expression $cmd
         $cmd = "wsl --unregister $DistroName"
         Invoke-Expression $cmd
         Start-Sleep -Seconds 2
@@ -197,7 +199,7 @@ function Remove-WSLDistro {
     }
 
     # Step 2: Attempt to remove matching Appx package
-    Write-Host "`nChecking for matching Appx package..." -ForegroundColor Cyan
+    Write-Host "Checking for matching Appx package..." -ForegroundColor Cyan
     $app = Get-AppxPackage | Where-Object { $_.Name -match [Regex]::Escape($DistroName) -or $_.Name -match "Ubuntu" }
 
     if ($app) {
