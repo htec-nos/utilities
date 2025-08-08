@@ -129,7 +129,7 @@ sudo usermod -aG docker $USER
 # Install pip and jinjanator:
 sudo apt install -y python3-pip
 python3 -m pip install jinjanator
-echo 'export PATH="/home/user/.local/bin:$PATH"' >> ~/.bashrc
+echo 'export PATH="/home/$USER/.local/bin:$PATH"' >> ~/.bashrc
 '@
 
     # Write the setup script to a temporary file
@@ -140,7 +140,7 @@ echo 'export PATH="/home/user/.local/bin:$PATH"' >> ~/.bashrc
     # Copy script to WSL and execute it
     wsl -d $distroId -- mkdir -p /tmp/setup
     Get-Content -Raw $tempScriptPath | wsl -d $distroId -- bash -c "cat > /tmp/setup/user_setup.sh"
-    wsl -d $distroId -- bash -c "chmod +x /tmp/setup/user_setup.sh && sudo bash /tmp/setup/user_setup.sh"
+    wsl -d $distroId -- bash -c "chmod +x /tmp/setup/user_setup.sh && bash /tmp/setup/user_setup.sh"
     
 
     Write-Host "WSL and Ubuntu installed successfully!" -ForegroundColor Green
