@@ -1,4 +1,4 @@
-# wsl-manager.ps1
+# setup_wsl_environment.ps1
 
 param (
     [ValidateSet("install", "clean")]
