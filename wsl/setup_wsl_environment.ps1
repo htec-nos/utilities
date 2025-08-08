@@ -10,7 +10,7 @@ if (-not ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdent
     Write-Host "Restarting script as Administrator..."
     
     $escapedScriptPath = '"' + $PSCommandPath + '"'
-    Start-Process powershell -ArgumentList "-ExecutionPolicy Bypass -NoProfile -File $escapedScriptPath" -Verb RunAs
+    Start-Process powershell -ArgumentList "-ExecutionPolicy Bypass -NoProfile -File $escapedScriptPath $Action" -Verb RunAs
     exit
 }
 
@@ -103,7 +103,7 @@ function Install-WSL {
     wsl --set-default $distroId
 
     # Configure the WSL environment
-    Write-Host "Configuring environment inside $distroId...`n" -ForegroundColor Cyan
+    Write-Host "`nConfiguring environment inside $distroId...`n" -ForegroundColor Cyan
 
     $setupScript = @'
 #!/bin/bash
@@ -148,6 +148,7 @@ echo 'export PATH="/home/$USER/.local/bin:$PATH"' >> ~/.bashrc
     
 
     Write-Host "WSL and Ubuntu installed successfully!" -ForegroundColor Green
+    Start-Sleep -Seconds 2
 }
 
 function Remove-WSLDistro {
@@ -160,6 +161,7 @@ function Remove-WSLDistro {
 
         if (-not $installed) {
             Write-Host "No WSL distros are currently installed." -ForegroundColor Yellow
+            Start-Sleep -Seconds 2
             return
         }
 
@@ -215,6 +217,7 @@ function Remove-WSLDistro {
     }
 
     Write-Host "`nRemoval of '$DistroName' completed." -ForegroundColor Green
+    Start-Sleep -Seconds 2
 }
 
 switch ($Action) {
