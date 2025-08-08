@@ -208,15 +208,14 @@ function Remove-WSLDistro {
         Write-Host "`nRemoving Appx package: $($app.Name)"
         try {
             Remove-AppxPackage -Package $app.PackageFullName
-            Start-Sleep -Seconds 2
+            Write-Host "`nRemoval of '$DistroName' completed." -ForegroundColor Green
         } catch {
-            Write-Warning "Failed to remove Appx package: $_" -ForegroundColor Red
+            Write-Warning "Failed to remove Appx package: $app"
         }
     } else {
         Write-Host "`nNo Appx package found for '$DistroName'" -ForegroundColor Yellow
     }
 
-    Write-Host "`nRemoval of '$DistroName' completed." -ForegroundColor Green
     Start-Sleep -Seconds 2
 }
 
