@@ -52,14 +52,14 @@ function Check-WSLDistroOrPromptRemove {
         $choice = Read-Host "Do you want to remove it and reinstall? (y/N)"
         if ($choice -match '^(y|yes)$') {
             Remove-WSLDistro -DistroName $DistroName
-            return $true  # Continue with fresh install
+            return  # Continue with fresh install
         } else {
             Write-Host "Exiting without changes." -ForegroundColor Green
             exit
         }
     }
 
-    return $true  # Distro not installed, safe to continue
+    return  # Distro not installed, safe to continue
 }
 
 function Install-WSL {
@@ -88,6 +88,9 @@ function Install-WSL {
     $distroId = Select-UbuntuVersion
 
     Check-WSLDistroOrPromptRemove -DistroName $distroId
+
+    Write-Host "`nInstalling WSL with Ubuntu '$distroId'..." -ForegroundColor Cyan
+    Write-Host "Remember to type 'exit' after installation finishes`n" -ForegroundColor Yellow
 
     # Install WSL (this auto-installs WSL2 and Ubuntu)
     try {
