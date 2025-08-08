@@ -134,8 +134,9 @@ echo 'export PATH="/home/$USER/.local/bin:$PATH"' >> ~/.bashrc
 
     # Write the setup script to a temporary file
     $tempScriptPath = "$env:TEMP\wsl_user_setup.sh"
-    $setupScript | Out-File -FilePath $tempScriptPath -Encoding utf8
-    (Get-Content $tempScriptPath -Raw).Replace("`r`n", "`n") | Set-Content -Force -Encoding utf8 -NoNewline -Path $tempScriptPath
+    $setupScript | Out-File -FilePath $tempScriptPath -Encoding utf8 -NoNewline
+    (Get-Content $tempScriptPath -Raw).Replace("`r`n", "`n").Replace("`r", "") |
+        Set-Content -Force -Encoding utf8 -NoNewline -Path $tempScriptPath
 
     # Copy script to WSL and execute it
     wsl -d $distroId -- mkdir -p /tmp/setup
