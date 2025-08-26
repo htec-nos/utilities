@@ -1,7 +1,7 @@
 # setup_wsl_environment.ps1
 
 param (
-    [ValidateSet("install", "clean")]
+    [ValidateSet("install", "clean", "move")]
     [string]$Action = "install"
 )
 
@@ -12,6 +12,54 @@ if (-not ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdent
     $escapedScriptPath = '"' + $PSCommandPath + '"'
     Start-Process powershell -ArgumentList "-ExecutionPolicy Bypass -NoProfile -File $escapedScriptPath $Action" -Verb RunAs
     exit
+}
+
+function Select-Disk {
+    $installedDistros = $(wsl --list --quiet).Trim()
+
+    if (-not $installedDistros) {
+        Write-Host "`nNo distros installed. Please install a distro first!`n" -ForegroundColor Green
+        return
+    }
+
+    $command_output = Get-PSDrive -PSProvider FileSystem
+    $lineCount = ($command_output -split "`n").Count
+
+    $lines = $command_output -split "`n"
+
+    if ($lineCount -ge 2) {
+        Write-Host "`nMultuple drives detected. Choose new drive (choosing default will close the prompt):`n" -ForegroundColor Cyan
+    } else {
+            Write-Host "`nSingle drive detected. WSL installed on System Drive Location.`n" -ForegroundColor Green
+            return
+    }
+
+    Write-Host "1. $($lines[0]) Drive (default):"
+    for ($i = 1; $i -lt $lines.Count; $i++) {
+        Write-Host "$($i + 1). $($lines[$i]) Drive:"
+    }
+
+    do {
+        $selection = Read-Host "Enter a number (1-$lineCount)"
+
+        if ($selection -eq 1)
+        {
+            Write-Host "`nDefault drive picked. Exiting without changes.`n" -ForegroundColor Green
+            return # Break operation if we pick the default installation disk
+        }
+
+        $valid = $selection -match '^[1-9][0-9]*$' -and [int]$selection -le $lineCount
+        if (-not $valid) {
+            Write-Host "Invalid selection. Please try again." -ForegroundColor Red
+        }
+
+    } while (-not $valid)
+
+    $cmd = "wsl --manage $installedDistros --move '$($lines[$selection - 1]):\WSL'"
+    Write-Host $cmd $installedDistros"asdasd"
+    Invoke-Expression $cmd
+
+    return
 }
 
 function Select-UbuntuVersion {
@@ -222,5 +270,6 @@ function Remove-WSLDistro {
 switch ($Action) {
     "install" { Install-WSL }
     "clean"   { Remove-WSLDistro }
+    "move"    { Select-Disk }
     default   { Write-Host "Unknown action: $Action" -ForegroundColor Red }
 }
