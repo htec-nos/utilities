@@ -15,51 +15,59 @@ if (-not ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdent
 }
 
 function Select-Disk {
-    $installedDistros = $(wsl --list --quiet).Trim()
-
+    $installedDistros = (wsl --list --quiet) | ForEach-Object { $_.Trim() } | Where-Object { $_.Trim() -ne "" }
     if (-not $installedDistros) {
         Write-Host "`nNo distros installed. Please install a distro first!`n" -ForegroundColor Green
         return
     }
 
-    $command_output = Get-PSDrive -PSProvider FileSystem
-    $lineCount = ($command_output -split "`n").Count
-
-    $lines = $command_output -split "`n"
-
-    if ($lineCount -ge 2) {
-        Write-Host "`nMultuple drives detected. Choose new drive (choosing default will close the prompt):`n" -ForegroundColor Cyan
+    # Handle multiple distros
+    if ($installedDistros.Count -gt 1) {
+        Write-Host "`nMultiple distros detected:`n" -ForegroundColor Cyan
+        for ($i=0; $i -lt $installedDistros.Count; $i++) {
+            Write-Host "$($i+1). $($installedDistros[$i])"
+        }
+        $distroChoice = Read-Host "Select a distro (1-$($installedDistros.Count))"
+        $distro = $installedDistros[$distroChoice - 1]
     } else {
-            Write-Host "`nSingle drive detected. WSL installed on System Drive Location.`n" -ForegroundColor Green
-            return
+        $distro = $installedDistros
+    }
+	
+	# Remove any special characters that might cause issues
+    $distro = $distro -replace '^\*', ''        # Remove leading asterisk
+    $distro = $distro -replace '\p{C}+', ''     # Remove control chars (Unicode category C)
+    $distro = $distro.Trim()                    # Remove surrounding whitespace
+
+    # Get filesystem drives
+    $drives = (Get-PSDrive -PSProvider FileSystem | Select-Object -ExpandProperty Root)
+    if ($drives.Count -eq 1) {
+        Write-Host "`nSingle drive detected. WSL installed on System Drive Location.`n" -ForegroundColor Green
+        return
     }
 
-    Write-Host "1. $($lines[0]) Drive (default):"
-    for ($i = 1; $i -lt $lines.Count; $i++) {
-        Write-Host "$($i + 1). $($lines[$i]) Drive:"
+    Write-Host "`nMultiple drives detected. Choose new drive (default exits):`n" -ForegroundColor Cyan
+    for ($i=0; $i -lt $drives.Count; $i++) {
+        $label = if ($drives[$i] -eq "$env:SystemDrive\") { " (default)" } else { "" }
+        Write-Host "$($i+1). $($drives[$i])$label"
     }
 
     do {
-        $selection = Read-Host "Enter a number (1-$lineCount)"
-
-        if ($selection -eq 1)
-        {
-            Write-Host "`nDefault drive picked. Exiting without changes.`n" -ForegroundColor Green
-            return # Break operation if we pick the default installation disk
-        }
-
-        $valid = $selection -match '^[1-9][0-9]*$' -and [int]$selection -le $lineCount
+        $selection = Read-Host "Enter a number (1-$($drives.Count))"
+        $valid = $selection -match '^[1-9][0-9]*$' -and [int]$selection -le $drives.Count
         if (-not $valid) {
             Write-Host "Invalid selection. Please try again." -ForegroundColor Red
         }
-
     } while (-not $valid)
 
-    $cmd = "wsl --manage $installedDistros --move '$($lines[$selection - 1]):\WSL'"
-    Write-Host $cmd $installedDistros"asdasd"
-    Invoke-Expression $cmd
+    if ($drives[$selection - 1] -eq "$env:SystemDrive\") {
+        Write-Host "`nDefault drive picked. Exiting without changes.`n" -ForegroundColor Green
+        return
+    }
 
-    return
+    $selectedDrive = $drives[$selection - 1].Substring(0,2)  # e.g., "D:"
+    $cmd = "wsl --manage `"$distro`" --move `"$selectedDrive\WSL`""
+    Write-Host "`nRunning: $cmd`n"
+    Invoke-Expression $cmd
 }
 
 function Select-UbuntuVersion {
@@ -183,19 +191,47 @@ python3 -m pip install jinjanator
 echo 'export PATH="/home/$USER/.local/bin:$PATH"' >> ~/.bashrc
 '@
 
+    $setupRepoScript = @'
+#!/bin/bash
+
+# Create workspace
+mkdir ~/workspace/
+cd ~/workspace/
+
+#Download all repos
+git clone --recurse-submodules https://github.com/htec-nos/sonic-buildimage.git
+git clone --recurse-submodules https://github.com/htec-nos/utilities.git
+
+# Checkout to 202505 branch
+cd sonic-buildimage/
+git checkout 202505
+
+echo 'cd ~/workspace/sonic-buildimage/' >> ~/.bashrc
+'@
+
     # Write the setup script to a temporary file
     $tempScriptPath = "$env:TEMP\wsl_user_setup.sh"
     $setupScript | Out-File -FilePath $tempScriptPath -Encoding utf8 -NoNewline
     (Get-Content $tempScriptPath -Raw).Replace("`r`n", "`n").Replace("`r", "") |
         Set-Content -Force -Encoding utf8 -NoNewline -Path $tempScriptPath
-
     # Copy script to WSL and execute it
     wsl -d $distroId -- mkdir -p /tmp/setup
     Get-Content -Raw $tempScriptPath | wsl -d $distroId -- bash -c "cat > /tmp/setup/user_setup.sh"
     wsl -d $distroId -- bash -c "chmod +x /tmp/setup/user_setup.sh && bash /tmp/setup/user_setup.sh"
-    
-
     Write-Host "WSL and Ubuntu installed successfully!" -ForegroundColor Green
+    Start-Sleep -Seconds 2
+	
+	# Setting up the repo
+    Write-Host "`nSetting up repo...`n" -ForegroundColor Cyan
+	# Write the setup repo script to a temporary file
+    $setupRepoScript | Out-File -FilePath $tempScriptPath -Encoding utf8 -NoNewline
+    (Get-Content $tempScriptPath -Raw).Replace("`r`n", "`n").Replace("`r", "") |
+        Set-Content -Force -Encoding utf8 -NoNewline -Path $tempScriptPath
+    # Copy script to WSL and execute it
+    wsl -d $distroId -- mkdir -p /tmp/setup
+    Get-Content -Raw $tempScriptPath | wsl -d $distroId -- bash -c "cat > /tmp/setup/repo_user_setup.sh"
+    wsl -d $distroId -- bash -c "chmod +x /tmp/setup/repo_user_setup.sh && bash /tmp/setup/repo_user_setup.sh"
+	Write-Host "Successfully setup repo!" -ForegroundColor Green
     Start-Sleep -Seconds 2
 }
 
