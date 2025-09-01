@@ -61,6 +61,8 @@ function Select-Disk {
 
     if ($drives[$selection - 1] -eq "$env:SystemDrive\") {
         Write-Host "`nDefault drive picked. Exiting without changes.`n" -ForegroundColor Green
+        $cmd = "wsl --shutdown"
+        Invoke-Expression $cmd
         return
     }
 
@@ -68,6 +70,8 @@ function Select-Disk {
     $cmd = "wsl --manage `"$distro`" --move `"$selectedDrive\WSL`""
     Write-Host "`nRunning: $cmd`n"
     Invoke-Expression $cmd
+    Write-Host "Successfully moved to `"$selectedDrive\WSL`"" -ForegroundColor Green
+    Start-Sleep -Seconds 2
 }
 
 function Select-UbuntuVersion {
