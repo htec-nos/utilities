@@ -5,15 +5,6 @@ param (
     [string]$Action = "install"
 )
 
-# Relaunch as admin if not already elevated
-if (-not ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
-    Write-Host "Restarting script as Administrator..."
-    
-    $escapedScriptPath = '"' + $PSCommandPath + '"'
-    Start-Process powershell -ArgumentList "-ExecutionPolicy Bypass -NoProfile -File $escapedScriptPath $Action" -Verb RunAs
-    exit
-}
-
 function Select-Disk {
     $installedDistros = (wsl --list --quiet) | ForEach-Object { $_.Trim() } | Where-Object { $_.Trim() -ne "" }
     if (-not $installedDistros) {
@@ -61,11 +52,10 @@ function Select-Disk {
 
     if ($drives[$selection - 1] -eq "$env:SystemDrive\") {
         Write-Host "`nDefault drive picked. Exiting without changes.`n" -ForegroundColor Green
+        $cmd = "wsl --shutdown"
+        Invoke-Expression $cmd
         return
     }
-
-    $cmd = "wsl --shutdown"
-    Invoke-Expression $cmd
 
     $selectedDrive = $drives[$selection - 1].Substring(0,2)  # e.g., "D:"
     $cmd = "wsl --manage `"$distro`" --move `"$selectedDrive\WSL`""
@@ -124,6 +114,15 @@ function Check-WSLDistroOrPromptRemove {
 }
 
 function Install-WSL {
+    # Relaunch as admin if not already elevated
+    if (-not ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
+        Write-Host "Restarting script as Administrator..."
+
+        $escapedScriptPath = '"' + $PSCommandPath + '"'
+        Start-Process powershell -ArgumentList "-ExecutionPolicy Bypass -NoProfile -File $escapedScriptPath $Action" -Verb RunAs
+        exit
+    }
+
     Write-Host "Checking necessary Windows features..." -ForegroundColor Cyan
 
     $wslFeature = Get-WindowsOptionalFeature -Online -FeatureName Microsoft-Windows-Subsystem-Linux
