@@ -52,10 +52,11 @@ function Select-Disk {
 
     if ($drives[$selection - 1] -eq "$env:SystemDrive\") {
         Write-Host "`nDefault drive picked. Exiting without changes.`n" -ForegroundColor Green
-        $cmd = "wsl --shutdown"
-        Invoke-Expression $cmd
         return
     }
+
+	$cmd = "wsl --shutdown"
+	Invoke-Expression $cmd
 
     $selectedDrive = $drives[$selection - 1].Substring(0,2)  # e.g., "D:"
     $cmd = "wsl --manage `"$distro`" --move `"$selectedDrive\WSL`""
