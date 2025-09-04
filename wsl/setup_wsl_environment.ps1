@@ -1,17 +1,69 @@
 # setup_wsl_environment.ps1
 
 param (
-    [ValidateSet("install", "clean")]
+    [ValidateSet("install", "clean", "move")]
     [string]$Action = "install"
 )
 
-# Relaunch as admin if not already elevated
-if (-not ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
-    Write-Host "Restarting script as Administrator..."
-    
-    $escapedScriptPath = '"' + $PSCommandPath + '"'
-    Start-Process powershell -ArgumentList "-ExecutionPolicy Bypass -NoProfile -File $escapedScriptPath $Action" -Verb RunAs
-    exit
+function Select-Disk {
+    $installedDistros = (wsl --list --quiet) | ForEach-Object { $_.Trim() } | Where-Object { $_.Trim() -ne "" }
+    if (-not $installedDistros) {
+        Write-Host "`nNo distros installed. Please install a distro first!`n" -ForegroundColor Green
+        return
+    }
+
+    # Handle multiple distros
+    if ($installedDistros.Count -gt 1) {
+        Write-Host "`nMultiple distros detected:`n" -ForegroundColor Cyan
+        for ($i=0; $i -lt $installedDistros.Count; $i++) {
+            Write-Host "$($i+1). $($installedDistros[$i])"
+        }
+        $distroChoice = Read-Host "Select a distro (1-$($installedDistros.Count))"
+        $distro = $installedDistros[$distroChoice - 1]
+    } else {
+        $distro = $installedDistros
+    }
+	
+	# Remove any special characters that might cause issues
+    $distro = $distro -replace '^\*', ''        # Remove leading asterisk
+    $distro = $distro -replace '\p{C}+', ''     # Remove control chars (Unicode category C)
+    $distro = $distro.Trim()                    # Remove surrounding whitespace
+
+    # Get filesystem drives
+    $drives = (Get-PSDrive -PSProvider FileSystem | Select-Object -ExpandProperty Root)
+    if ($drives.Count -eq 1) {
+        Write-Host "`nSingle drive detected. WSL installed on System Drive Location.`n" -ForegroundColor Green
+        return
+    }
+
+    Write-Host "`nMultiple drives detected. Choose new drive (default exits):`n" -ForegroundColor Cyan
+    for ($i=0; $i -lt $drives.Count; $i++) {
+        $label = if ($drives[$i] -eq "$env:SystemDrive\") { " (default)" } else { "" }
+        Write-Host "$($i+1). $($drives[$i])$label"
+    }
+
+    do {
+        $selection = Read-Host "Enter a number (1-$($drives.Count))"
+        $valid = $selection -match '^[1-9][0-9]*$' -and [int]$selection -le $drives.Count
+        if (-not $valid) {
+            Write-Host "Invalid selection. Please try again." -ForegroundColor Red
+        }
+    } while (-not $valid)
+
+    if ($drives[$selection - 1] -eq "$env:SystemDrive\") {
+        Write-Host "`nDefault drive picked. Exiting without changes.`n" -ForegroundColor Green
+        return
+    }
+
+	$cmd = "wsl --shutdown"
+	Invoke-Expression $cmd
+
+    $selectedDrive = $drives[$selection - 1].Substring(0,2)  # e.g., "D:"
+    $cmd = "wsl --manage `"$distro`" --move `"$selectedDrive\WSL`""
+    Write-Host "`nRunning: $cmd`n"
+    Invoke-Expression $cmd
+    Write-Host "Successfully moved to `"$selectedDrive\WSL`"" -ForegroundColor Green
+    Start-Sleep -Seconds 2
 }
 
 function Select-UbuntuVersion {
@@ -63,6 +115,15 @@ function Check-WSLDistroOrPromptRemove {
 }
 
 function Install-WSL {
+    # Relaunch as admin if not already elevated
+    if (-not ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
+        Write-Host "Restarting script as Administrator..."
+
+        $escapedScriptPath = '"' + $PSCommandPath + '"'
+        Start-Process powershell -ArgumentList "-ExecutionPolicy Bypass -NoProfile -File $escapedScriptPath $Action" -Verb RunAs
+        exit
+    }
+
     Write-Host "Checking necessary Windows features..." -ForegroundColor Cyan
 
     $wslFeature = Get-WindowsOptionalFeature -Online -FeatureName Microsoft-Windows-Subsystem-Linux
@@ -135,19 +196,47 @@ python3 -m pip install jinjanator
 echo 'export PATH="/home/$USER/.local/bin:$PATH"' >> ~/.bashrc
 '@
 
+    $setupRepoScript = @'
+#!/bin/bash
+
+# Create workspace
+mkdir ~/workspace/
+cd ~/workspace/
+
+#Download all repos
+git clone --recurse-submodules https://github.com/htec-nos/sonic-buildimage.git
+git clone --recurse-submodules https://github.com/htec-nos/utilities.git
+
+# Checkout to 202505 branch
+cd sonic-buildimage/
+git checkout 202505
+
+echo 'cd ~/workspace/sonic-buildimage/' >> ~/.bashrc
+'@
+
     # Write the setup script to a temporary file
     $tempScriptPath = "$env:TEMP\wsl_user_setup.sh"
     $setupScript | Out-File -FilePath $tempScriptPath -Encoding utf8 -NoNewline
     (Get-Content $tempScriptPath -Raw).Replace("`r`n", "`n").Replace("`r", "") |
         Set-Content -Force -Encoding utf8 -NoNewline -Path $tempScriptPath
-
     # Copy script to WSL and execute it
     wsl -d $distroId -- mkdir -p /tmp/setup
     Get-Content -Raw $tempScriptPath | wsl -d $distroId -- bash -c "cat > /tmp/setup/user_setup.sh"
     wsl -d $distroId -- bash -c "chmod +x /tmp/setup/user_setup.sh && bash /tmp/setup/user_setup.sh"
-    
-
     Write-Host "WSL and Ubuntu installed successfully!" -ForegroundColor Green
+    Start-Sleep -Seconds 2
+	
+	# Setting up the repo
+    Write-Host "`nSetting up repo...`n" -ForegroundColor Cyan
+	# Write the setup repo script to a temporary file
+    $setupRepoScript | Out-File -FilePath $tempScriptPath -Encoding utf8 -NoNewline
+    (Get-Content $tempScriptPath -Raw).Replace("`r`n", "`n").Replace("`r", "") |
+        Set-Content -Force -Encoding utf8 -NoNewline -Path $tempScriptPath
+    # Copy script to WSL and execute it
+    wsl -d $distroId -- mkdir -p /tmp/setup
+    Get-Content -Raw $tempScriptPath | wsl -d $distroId -- bash -c "cat > /tmp/setup/repo_user_setup.sh"
+    wsl -d $distroId -- bash -c "chmod +x /tmp/setup/repo_user_setup.sh && bash /tmp/setup/repo_user_setup.sh"
+	Write-Host "Successfully setup repo!" -ForegroundColor Green
     Start-Sleep -Seconds 2
 }
 
@@ -222,5 +311,6 @@ function Remove-WSLDistro {
 switch ($Action) {
     "install" { Install-WSL }
     "clean"   { Remove-WSLDistro }
+    "move"    { Select-Disk }
     default   { Write-Host "Unknown action: $Action" -ForegroundColor Red }
 }
