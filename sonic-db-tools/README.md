@@ -1,9 +1,9 @@
 # Config DB interaction Python script
 
 This script demonstrates how to interact with SONiC Redis Config Database using
-the `swsscommon` Python bindings.  
+the `swsscommon` library that provides database connectivity for SONiC.  
 
-The script performs the folloowing actions:
+The script performs the following actions:
  - Connects to `CONFIG_DB`
  - Lists all ports under the PORT table
  - Updates Ethernet 0’s MTU field to 9000
