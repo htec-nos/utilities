@@ -25,7 +25,7 @@ So far, the script was tested under the following conditions:
  - Run `sonic-vs.img` on QEMU. Run the following command in the PowerShell of Windows
 
 ```
-qemu-system-x86_64 -m 4096 -smp 2 -hda sonic-vs.img -netdev user,id=mgmt0,hostfwd=tcp::2222-:22 -deviceqemu-system-x86_64 -m 4096 -smp 2 -hda sonic-vs.img -netdev user,id=mgmt0,hostfwd=tcp::2222-:22 -device e1000,netdev=mgmt0
+qemu-system-x86_64 -m 4096 -smp 2 -hda sonic-vs.img -netdev user,id=mgmt0,hostfwd=tcp::2222-:22 -device e1000,netdev=mgmt0
 ```
 
  - Copy the script to your SONiC Device
