@@ -5,6 +5,8 @@ Tools and scripts used for NOS project
 
 ```
 utilities/
+├── sonic-db-tools/
+│   └── configdb_interaction.py   # Python script for SONiC Config Database interaction
 ├── wsl/
 │   └── setup_wsl_environment.ps1 # PowerShell entry script
 └── README.md                     # Top-level: overview of all utilities
