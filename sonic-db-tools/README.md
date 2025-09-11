@@ -37,3 +37,8 @@ Place `configdb_interaction.py` in a directory on your SONiC host, such as `/hom
 ```
 python3 configdb_interaction.py
 ```
+
+## Further information
+
+More information about Redis DB interaction in SONIC can be found
+in [`Introduction to SONiC Databases`](https://htecgroup.atlassian.net/wiki/spaces/NOSI/pages/5771886631/Introduction+to+SONiC+Databases#3.-Python-script-for-ConfigDB-interaction)
